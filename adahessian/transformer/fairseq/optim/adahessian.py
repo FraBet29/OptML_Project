@@ -96,7 +96,8 @@ class Adahess(torch.optim.Optimizer):
         params = self.param_groups[0]['params']
         params = list(filter(lambda x: x.requires_grad, params) )
 
-        v = [ 2 * torch.randint_like(p, high=2, device='cuda') - 1 for p in params]
+        # v = [ 2 * torch.randint_like(p, high=2, device='cuda') - 1 for p in params]
+        v = [ 2 * torch.randint_like(p, high=2, device='cpu') - 1 for p in params]
 
         # this is for distributed setting with single node and multi-gpus, 
         # for multi nodes setting, we have not support it yet.
@@ -108,8 +109,8 @@ class Adahess(torch.optim.Optimizer):
                 v_i[v_i < 0.] = -1.
                 v_i[v_i >= 0.] = 1.
 
-        # hvs = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True,  retain_graph=True)
-        hvs = torch.autograd.backward(tensors=gradsH, grad_tensors=v, inputs=params)
+        hvs = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True,  retain_graph=True)
+        # hvs = torch.autograd.backward(tensors=gradsH, grad_tensors=v, inputs=params)
 
         hutchinson_trace = []
         for hv, vi in zip(hvs, v):

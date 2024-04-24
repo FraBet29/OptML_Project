@@ -11,7 +11,7 @@ wlr=3.13333333e-6
 mlr=3.13333333e-8
 mkdir -p $OUTPUT_PATH
 
-python train.py ${DATA_PATH} \
+export CUDA_VISIBLE_DEVICES 1; python train.py ${DATA_PATH} \
                             --seed 1 \
                             --adam-eps 1e-04 \
                             --single-gpu \
