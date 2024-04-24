@@ -108,7 +108,7 @@ class Adahess(torch.optim.Optimizer):
                 v_i[v_i < 0.] = -1.
                 v_i[v_i >= 0.] = 1.
 
-        hvs = torch.autograd.grad(gradsH, params, grad_outputs=v, only_inputs=True,  retain_graph=True)
+        hvs = torch.autograd.grad(gradsH, params, grad_outputs=v)#, only_inputs=True,  retain_graph=True)
 
         hutchinson_trace = []
         for hv, vi in zip(hvs, v):
