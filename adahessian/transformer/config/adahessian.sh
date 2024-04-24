@@ -16,7 +16,7 @@ export CUDA_VISIBLE_DEVICES=1; python train.py ${DATA_PATH} \
                             --adam-eps 1e-04 \
                             --single-gpu \
                             --hessian-power 1 \
-                            --arch ${ARCH} --share-all-embeddings \
+                            --arch ${ARCH} \
                             --optimizer adahessian --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
                             --block-length 32 \
                             --dropout 0.3 --attention-dropout 0.1 --relu-dropout 0.1 \
