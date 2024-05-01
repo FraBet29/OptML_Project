@@ -2,7 +2,7 @@ DATA_PATH=./data-bin/iwslt14.tokenized.de-en.joined
 model=transformer
 PROBLEM=iwslt14_de_en
 ARCH=transformer_iwslt_de_en_v2
-OUTPUT_PATH=gdrive/MyDrive/OptML_Project/OptML_Project/log/adahessian
+OUTPUT_PATH=log/adahessian
 NUM=5
 lr=0.047
 # warmup-init-lr: using lr / adam_lr * adam_warmup-lr
