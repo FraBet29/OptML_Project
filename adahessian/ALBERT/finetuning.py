@@ -87,7 +87,7 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
         )
 
     _, dataset = squad_convert_examples_to_features(
-        examples=examples[:10],
+        examples=examples,
         tokenizer=tokenizer,
         max_seq_length=max_seq_length,
         doc_stride=doc_stride,
