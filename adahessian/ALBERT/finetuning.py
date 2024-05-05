@@ -75,6 +75,8 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
 def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_query_length=64, evaluate=False):
     
     where = "evaluation" if evaluate else "training"
+    # print the current working directory
+    print(f"Current working directory: {os.getcwd()}")
     
     if not os.path.exists(f"data/{where}/features.pt"):
         split = 'validation' if evaluate else 'train'
@@ -112,11 +114,17 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
         torch.save(features, f"data/{where}/features.pt")
         torch.save(dataset, f"data/{where}/dataset.pt")
         torch.save(examples, f"data/{where}/examples.pt")
+        print("Features and dataset saved.")
 
     else:
         features = torch.load(f"data/{where}/features.pt")
         dataset = torch.load(f"data/{where}/dataset.pt")
         examples = torch.load(f"data/{where}/examples.pt")
+        print("Features and dataset loaded.")
+
+    # check if they exist
+    if not os.path.exists(f"data/{where}/features.pt") or not os.path.exists(f"data/{where}/dataset.pt"):
+        print("Features and dataset not saved or present.")
 
     return features, examples, dataset
 
