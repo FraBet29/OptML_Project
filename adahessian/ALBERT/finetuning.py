@@ -41,7 +41,12 @@ def f1_score(prediction, truth):
     recall = 1.0 * num_same / len(truth_tokens)
     return 2 * (precision * recall) / (precision + recall)
     
-def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, train_batch_size=8):
+def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, train_batch_size=8, from_checkpoint=None):
+    
+    if from_checkpoint:
+        model = AlbertForQuestionAnswering.from_pretrained(from_checkpoint)
+        model.to(device)
+
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=train_batch_size)
 
@@ -50,7 +55,7 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
 
     model.train()
-    for epoch in range(num_train_epochs):
+    for epoch in range(num_train_epochs - 1 if from_checkpoint else num_train_epochs):
         for batch in tqdm(train_dataloader):
             batch = tuple(t.to(device) for t in batch)
             inputs = {'input_ids': batch[0], 'attention_mask': batch[1], 'start_positions': batch[3], 'end_positions': batch[4]}
@@ -62,39 +67,57 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
             model.zero_grad()
         print(f"Epoch {epoch+1}, Loss: {loss.item()}")
 
+        # checkpoint the model
+        model.save_pretrained(f"adahessian/ALBERT/checkpoints/version-lr{learning_rate}-epochs{epoch+1}")
+
     return model
 
 def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_query_length=64, evaluate=False):
-    split = 'validation' if evaluate else 'train'
-    ex = load_dataset("squad_v2", split=split)
-    examples = []
+    
+    where = "evaluation" if evaluate else "training"
+    
+    if not os.path.exists(f"data/{where}/features.pt"):
+        split = 'validation' if evaluate else 'train'
+        ex = load_dataset("squad_v2", split=split)
+        examples = []
 
-    for item in ex:
-        answer_texts = item['answers']['text']
-        answer_starts = item['answers']['answer_start']
-        examples.append(
-            SquadExample(
-                qas_id=item['id'],
-                question_text=item['question'],
-                context_text=item['context'],
-                answer_text=answer_texts[0] if answer_texts else "",
-                start_position_character=answer_starts[0] if answer_starts else None,
-                title="",
-                is_impossible=item['answers']['text'] == [],
-                answers=item['answers']
+        for item in ex:
+            answer_texts = item['answers']['text']
+            answer_starts = item['answers']['answer_start']
+            examples.append(
+                SquadExample(
+                    qas_id=item['id'],
+                    question_text=item['question'],
+                    context_text=item['context'],
+                    answer_text=answer_texts[0] if answer_texts else "",
+                    start_position_character=answer_starts[0] if answer_starts else None,
+                    title="",
+                    is_impossible=item['answers']['text'] == [],
+                    answers=item['answers']
+                )
             )
+
+        features, dataset = squad_convert_examples_to_features(
+            examples=examples[:], # I use 1/3 of the dataset
+            tokenizer=tokenizer,
+            max_seq_length=max_seq_length,
+            doc_stride=doc_stride,
+            max_query_length=max_query_length,
+            is_training=True,
+            return_dataset="pt",
+            threads=1
         )
 
-    features, dataset = squad_convert_examples_to_features(
-        examples=examples,
-        tokenizer=tokenizer,
-        max_seq_length=max_seq_length,
-        doc_stride=doc_stride,
-        max_query_length=max_query_length,
-        is_training=True,
-        return_dataset="pt",
-        threads=1
-    )
+        # save the features and dataset
+        torch.save(features, f"data/{where}/features.pt")
+        torch.save(dataset, f"data/{where}/dataset.pt")
+        torch.save(examples, f"data/{where}/examples.pt")
+
+    else:
+        features = torch.load(f"data/{where}/features.pt")
+        dataset = torch.load(f"data/{where}/dataset.pt")
+        examples = torch.load(f"data/{where}/examples.pt")
+
     return features, examples, dataset
 
 def evaluate(model, tokenizer, dataset, device):
