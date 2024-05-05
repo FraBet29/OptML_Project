@@ -51,7 +51,6 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
 
     model.train()
     for epoch in range(num_train_epochs):
-        print(f"Epoch {epoch+1}")
         for batch in tqdm(train_dataloader):
             batch = tuple(t.to(device) for t in batch)
             inputs = {'input_ids': batch[0], 'attention_mask': batch[1], 'start_positions': batch[3], 'end_positions': batch[4]}
@@ -130,7 +129,6 @@ def evaluate(model, tokenizer, dataset, device):
                 continue
 
             match_scores = [exact_match_score(pred_answer, answer) for answer in ground_truth_answers]
-            print(f"{pred_answer}, {ground_truth_answers}, Match scores: {match_scores}")
             em_total += max(match_scores)
             total_examples += 1
 
@@ -145,6 +143,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
+    learning_rate = 5e-5
+    epochs = 3
+
     tokenizer = AlbertTokenizer.from_pretrained(model_name_or_path)
     model = AlbertForQuestionAnswering.from_pretrained(model_name_or_path)
     model.to(device)
@@ -153,7 +154,8 @@ def main():
     _, _, val_dataset = load_and_cache_examples(tokenizer, evaluate=True)
 
     print("Start training...")
-    model = train(model, tokenizer, train_dataset, device)
+    model = train(model, train_dataset, device, learning_rate=learning_rate, num_train_epochs=epochs)
+    model.save_pretrained(f"adahessian/ALBERT/checkpoints/version-lr{learning_rate}-epochs{epochs}")
 
     print("Start evaluation...")
     evaluate(model, tokenizer, val_dataset, device)
