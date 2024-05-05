@@ -41,8 +41,7 @@ def f1_score(prediction, truth):
     recall = 1.0 * num_same / len(truth_tokens)
     return 2 * (precision * recall) / (precision + recall)
     
-
-def train(model, tokenizer, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, train_batch_size=8):
+def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, train_batch_size=8):
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=train_batch_size)
 
@@ -66,11 +65,12 @@ def train(model, tokenizer, train_dataset, device, learning_rate=5e-5, num_train
 
     return model
 
-def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_query_length=64):
-    dataset = load_dataset("squad_v2", split='train')
+def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_query_length=64, evaluate=False):
+    split = 'validation' if evaluate else 'train'
+    ex = load_dataset("squad_v2", split=split)
     examples = []
 
-    for item in dataset:
+    for item in ex:
         answer_texts = item['answers']['text']
         answer_starts = item['answers']['answer_start']
         examples.append(
@@ -86,7 +86,7 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
             )
         )
 
-    _, dataset = squad_convert_examples_to_features(
+    features, dataset = squad_convert_examples_to_features(
         examples=examples,
         tokenizer=tokenizer,
         max_seq_length=max_seq_length,
@@ -96,29 +96,7 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
         return_dataset="pt",
         threads=1
     )
-    return dataset
-
-def main():
-    model_name_or_path = 'albert-base-v2'
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    tokenizer = AlbertTokenizer.from_pretrained(model_name_or_path)
-    model = AlbertForQuestionAnswering.from_pretrained(model_name_or_path)
-    model.to(device)
-
-    train_dataset = load_and_cache_examples(tokenizer)
-    val_dataset = load_and_cache_examples(tokenizer)
-
-    print("Start training...")
-    if not os.path.exists("adahessian/ALBERT/checkpoints/version-0"):
-        model = train(model, tokenizer, train_dataset, device)
-        model.save_pretrained("adahessian/ALBERT/checkpoints/version-0")
-    else:
-        model = AlbertForQuestionAnswering.from_pretrained("adahessian/ALBERT/checkpoints/version-0")
-
-    print("Start evaluation...")
-    evaluate(model, tokenizer, val_dataset, device)
+    return features, examples, dataset
 
 def evaluate(model, tokenizer, dataset, device):
     """Evaluate the model performance on a given dataset."""
@@ -127,16 +105,11 @@ def evaluate(model, tokenizer, dataset, device):
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=8)
     
     em_total = 0
-    f1_total = 0
     total_examples = 0
     
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         batch = tuple(t.to(device) for t in batch)
-        inputs = {
-            "input_ids": batch[0],
-            "attention_mask": batch[1],
-            "token_type_ids": batch[2] if len(batch) > 2 else None,  # handle models that don't need token_type_ids
-        }
+        inputs = {'input_ids': batch[0], 'attention_mask': batch[1], 'start_positions': batch[3], 'end_positions': batch[4]}
         
         with torch.no_grad():
             outputs = model(**inputs)
@@ -147,31 +120,43 @@ def evaluate(model, tokenizer, dataset, device):
             start_index = torch.argmax(start_logits[i]).item()
             end_index = torch.argmax(end_logits[i]).item()
             
-            # Decode the predicted answer
             if start_index <= end_index:
                 pred_answer = tokenizer.decode(inputs["input_ids"][i][start_index:end_index+1], skip_special_tokens=True)
             else:
                 pred_answer = ""
 
-            print(f"Predicted Answer: {pred_answer}")
-            ground_truth_answers = tokenizer.decode(batch[3][i], skip_special_tokens=True)
+            ground_truth_answers = tokenizer.decode(inputs["input_ids"][i][inputs["start_positions"][i]:inputs["end_positions"][i]+1], skip_special_tokens=True)
+            if not ground_truth_answers:
+                continue
 
-            # Calculate Exact Match and F1 Score
             match_scores = [exact_match_score(pred_answer, answer) for answer in ground_truth_answers]
-            f1_scores = [f1_score(pred_answer, answer) for answer in ground_truth_answers]
-            
-            max_f1 = max(f1_scores) if f1_scores else 0
-
+            print(f"{pred_answer}, {ground_truth_answers}, Match scores: {match_scores}")
             em_total += max(match_scores)
-            f1_total += max_f1
             total_examples += 1
 
     em_score = em_total / total_examples
-    f1_score = f1_total / total_examples
 
-    print(f"Exact Match (EM): {em_score:.2f}, F1 Score: {f1_score:.2f}")
+    print(f"Exact Match (EM): {em_score:.2f}")
 
-    return em_score, f1_score
+    return em_score
+
+def main():
+    model_name_or_path = 'albert-base-v2'
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    tokenizer = AlbertTokenizer.from_pretrained(model_name_or_path)
+    model = AlbertForQuestionAnswering.from_pretrained(model_name_or_path)
+    model.to(device)
+
+    _, _, train_dataset = load_and_cache_examples(tokenizer, evaluate=False)
+    _, _, val_dataset = load_and_cache_examples(tokenizer, evaluate=True)
+
+    print("Start training...")
+    model = train(model, tokenizer, train_dataset, device)
+
+    print("Start evaluation...")
+    evaluate(model, tokenizer, val_dataset, device)
 
 if __name__ == "__main__":
     main()
