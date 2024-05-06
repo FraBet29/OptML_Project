@@ -56,7 +56,7 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
 
     model.train()
     for epoch in range(num_train_epochs - 1 if from_checkpoint else num_train_epochs):
-        for batch in tqdm(train_dataloader):
+        for batch in tqdm(train_dataloader, desc="Training"):
             batch = tuple(t.to(device) for t in batch)
             inputs = {'input_ids': batch[0], 'attention_mask': batch[1], 'start_positions': batch[3], 'end_positions': batch[4]}
             outputs = model(**inputs)
@@ -69,6 +69,7 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
 
         # checkpoint the model
         model.save_pretrained(f"adahessian/ALBERT/checkpoints/version-lr{learning_rate}-epochs{epoch+1}")
+        print(f"Model saved at epoch {epoch+1}")
 
     return model
 
@@ -77,8 +78,8 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
     where = "evaluation" if evaluate else "training"
     # print the current working directory
     print(f"Current working directory: {os.getcwd()}")
-    
-    if not os.path.exists(f"data/{where}/features.pt"):
+
+    if not os.path.exists(f"adahessian/ALBERT/data/{where}/features.pt"):
         split = 'validation' if evaluate else 'train'
         ex = load_dataset("squad_v2", split=split)
         examples = []
@@ -100,7 +101,7 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
             )
 
         features, dataset = squad_convert_examples_to_features(
-            examples=examples[:50000], # I use 1/3 of the dataset
+            examples=examples[:1000], # I use 1/3 of the dataset
             tokenizer=tokenizer,
             max_seq_length=max_seq_length,
             doc_stride=doc_stride,
@@ -111,19 +112,19 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
         )
 
         # save the features and dataset
-        torch.save(features, f"data/{where}/features.pt")
-        torch.save(dataset, f"data/{where}/dataset.pt")
-        torch.save(examples, f"data/{where}/examples.pt")
+        torch.save(features, f"adahessian/ALBERT/data/{where}/features.pt")
+        torch.save(dataset, f"adahessian/ALBERT/data/{where}/dataset.pt")
+        torch.save(examples, f"adahessian/ALBERT/data/{where}/examples.pt")
         print("Features and dataset saved.")
 
     else:
-        features = torch.load(f"data/{where}/features.pt")
-        dataset = torch.load(f"data/{where}/dataset.pt")
-        examples = torch.load(f"data/{where}/examples.pt")
+        features = torch.load(f"adahessian/ALBERT/data/{where}/features.pt")
+        dataset = torch.load(f"adahessian/ALBERT/data/{where}/dataset.pt")
+        examples = torch.load(f"adahessian/ALBERT/data/{where}/examples.pt")
         print("Features and dataset loaded.")
 
     # check if they exist
-    if not os.path.exists(f"data/{where}/features.pt") or not os.path.exists(f"data/{where}/dataset.pt"):
+    if not os.path.exists(f"adahessian/ALBERT/data/{where}/features.pt") or not os.path.exists(f"adahessian/ALBERT/data/{where}/dataset.pt"):
         print("Features and dataset not saved or present.")
 
     return features, examples, dataset
@@ -156,16 +157,24 @@ def evaluate(model, tokenizer, dataset, device):
                 pred_answer = ""
 
             ground_truth_answers = tokenizer.decode(inputs["input_ids"][i][inputs["start_positions"][i]:inputs["end_positions"][i]+1], skip_special_tokens=True)
+            
             if not ground_truth_answers:
                 continue
+            
+            
+            match_scores = exact_match_score(pred_answer, ground_truth_answers)
 
-            match_scores = [exact_match_score(pred_answer, answer) for answer in ground_truth_answers]
-            em_total += max(match_scores)
+            # print(f"Prediction {i}: {pred_answer}")
+            # print(f"Ground truth {i}: {ground_truth_answers}")
+            # print(f"Match scores: {match_scores} \n")
+
+            em_total += match_scores
             total_examples += 1
 
     em_score = em_total / total_examples
 
     print(f"Exact Match (EM): {em_score:.2f}")
+    # TODO: Add F1 score
 
     return em_score
 
@@ -184,9 +193,14 @@ def main():
     _, _, train_dataset = load_and_cache_examples(tokenizer, evaluate=False)
     _, _, val_dataset = load_and_cache_examples(tokenizer, evaluate=True)
 
-    print("Start training...")
-    model = train(model, train_dataset, device, learning_rate=learning_rate, num_train_epochs=epochs)
-    model.save_pretrained(f"adahessian/ALBERT/checkpoints/version-lr{learning_rate}-epochs{epochs}")
+    if os.path.exists(os.getcwd() + "/adahessian/ALBERT/checkpoints/version-lr5e-05-epochs3"):
+        print("Loading model from checkpoint...")
+        model = AlbertForQuestionAnswering.from_pretrained(os.getcwd() + "/adahessian/ALBERT/checkpoints/version-lr5e-05-epochs3", config=model.config)
+        model.to(device)
+    else:
+        print("Start training...")
+        model = train(model, train_dataset, device, learning_rate=learning_rate, num_train_epochs=epochs)
+        model.save_pretrained(os.getcwd() + "/adahessian/ALBERT/checkpoints/version-lr5e-05-epochs3")
 
     print("Start evaluation...")
     evaluate(model, tokenizer, val_dataset, device)
