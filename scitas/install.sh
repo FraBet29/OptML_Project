@@ -9,6 +9,6 @@ conda update --all && conda clean -p
 conda config --set auto_activate_base false
 
 # Install Python
-ENV_NAME=dl
+ENV_NAME=optml
 conda create -n ${ENV_NAME} python=3.10
 conda activate ${ENV_NAME}
