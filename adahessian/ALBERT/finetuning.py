@@ -10,7 +10,7 @@ from transformers import (
 from torch.optim import AdamW
 from datasets import load_dataset
 from tqdm import tqdm
-from collections import Counter
+import collections
 import re
 import timeit
 import os
@@ -27,19 +27,34 @@ def normalize_answer(s):
         return text.lower()
     return white_space_fix(remove_articles(remove_punct(lower(s))))
 
-def exact_match_score(prediction, truth):
-    return (normalize_answer(prediction) == normalize_answer(truth))
+def compute_exact(a_gold, a_pred):
+    return int(normalize_answer(a_gold) == normalize_answer(a_pred))
 
-def f1_score(prediction, truth):
-    pred_tokens = normalize_answer(prediction).split()
-    truth_tokens = normalize_answer(truth).split()
-    common_tokens = Counter(pred_tokens) & Counter(truth_tokens)
-    num_same = sum(common_tokens.values())
+def get_tokens(s):
+    if not s:
+        return []
+    return normalize_answer(s).split()
+
+def compute_f1(a_gold, a_pred):
+    gold_toks = get_tokens(a_gold)
+    pred_toks = get_tokens(a_pred)
+    common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
+    num_same = sum(common.values())
+    if len(gold_toks) == 0 or len(pred_toks) == 0:
+        return int(gold_toks == pred_toks)
     if num_same == 0:
         return 0
-    precision = 1.0 * num_same / len(pred_tokens)
-    recall = 1.0 * num_same / len(truth_tokens)
-    return 2 * (precision * recall) / (precision + recall)
+    precision = 1.0 * num_same / len(pred_toks)
+    recall = 1.0 * num_same / len(gold_toks)
+    f1 = (2 * precision * recall) / (precision + recall)
+    return f1
+
+def get_raw_scores(gt, pred):
+
+    exact_scores = compute_exact(gt, pred)
+    f1_scores = compute_f1(gt, pred)
+
+    return exact_scores, f1_scores
     
 def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, train_batch_size=8, from_checkpoint=None):
     
@@ -136,6 +151,7 @@ def evaluate(model, tokenizer, dataset, device):
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=8)
     
     em_total = 0
+    f1_total = 0
     total_examples = 0
     
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
@@ -161,20 +177,17 @@ def evaluate(model, tokenizer, dataset, device):
             if not ground_truth_answers:
                 continue
             
-            
-            match_scores = exact_match_score(pred_answer, ground_truth_answers)
-
-            # print(f"Prediction {i}: {pred_answer}")
-            # print(f"Ground truth {i}: {ground_truth_answers}")
-            # print(f"Match scores: {match_scores} \n")
+            match_scores, f1_scores = get_raw_scores(ground_truth_answers, pred_answer)
 
             em_total += match_scores
+            f1_total += f1_scores
             total_examples += 1
 
     em_score = em_total / total_examples
+    f1_score = f1_total / total_examples
 
     print(f"Exact Match (EM): {em_score:.2f}")
-    # TODO: Add F1 score
+    print(f"F1 Score: {f1_score:.2f}")
 
     return em_score
 
