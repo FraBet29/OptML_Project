@@ -116,7 +116,7 @@ def load_and_cache_examples(tokenizer, max_seq_length=384, doc_stride=128, max_q
             )
 
         features, dataset = squad_convert_examples_to_features(
-            examples=examples[:1000], # I use 1/3 of the dataset
+            examples=examples, # I use 1/3 of the dataset --> [:1000]
             tokenizer=tokenizer,
             max_seq_length=max_seq_length,
             doc_stride=doc_stride,
@@ -173,7 +173,8 @@ def evaluate(model, tokenizer, dataset, device):
                 pred_answer = ""
 
             ground_truth_answers = tokenizer.decode(inputs["input_ids"][i][inputs["start_positions"][i]:inputs["end_positions"][i]+1], skip_special_tokens=True)
-            
+            print("The predicted answer is: ", pred_answer)
+            print("The ground truth answer is: ", ground_truth_answers)
             if not ground_truth_answers:
                 continue
             
