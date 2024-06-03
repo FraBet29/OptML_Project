@@ -37,7 +37,10 @@ class Adasub(torch.optim.Optimizer):
         p,
         grad_outputs=vec,
         only_inputs=True,
-        retain_graph=True)
+        retain_graph=True,
+        allow_unused=True, # ADDED
+        materialize_grads=True # ADDED, useful for high order derivatives (?)
+        )
         
         Hv_flaten = []
         for i in range(len(Hv)):
@@ -78,10 +81,11 @@ class Adasub(torch.optim.Optimizer):
                         p.add_(d_p, alpha=-group['lr'])
                     p.subSpace = p.grad.data.view(-1,1)
                 else:
-                    flat_grad = p.grad.view(-1,1)
+                    # flat_grad = p.grad.view(-1,1)
+                    flat_grad = p.grad.view(-1,1).requires_grad_(True)
                     p.subSpace = self.update_subspace(p.subSpace,flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data)
-                    HQ = self.Hessian_M(flat_grad,Q,p)
+                    HQ = self.Hessian_M(flat_grad,Q,p) # BUG: element 0 of tensors does not require grad and does not have a grad_fn
                     U, eig, alfa = self.correction_Hessian(Q.T@HQ)
                     y = U@torch.diag(1/(eig+alfa))@U.T@(Q.T@flat_grad)
                     d_p = Q@y
