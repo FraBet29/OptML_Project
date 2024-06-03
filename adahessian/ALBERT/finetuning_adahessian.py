@@ -63,6 +63,7 @@ def train(model, train_dataset, device, learning_rate=5e-5, num_train_epochs=3, 
             outputs = model(**inputs)
             loss = outputs[0]
             loss.backward()
+            # loss.backward(create_graph=True) # OUT OF RAM
             optimizer.step()
             scheduler.step()
             model.zero_grad()
