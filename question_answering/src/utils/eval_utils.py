@@ -1,8 +1,16 @@
 import torch
 import collections
 
-from transformers.data.metrics.squad_metrics import squad_evaluate
+from transformers.data.metrics.squad_metrics import squad_evaluate, compute_predictions_logits
 from tqdm import tqdm
+from src.utils.data_utils import load_and_cache_examples
+
+from torch.utils.data import (
+    DataLoader, 
+    SequentialSampler
+)
+from transformers.data.processors.squad import SquadResult
+import os
 
 def get_clean_text(tokens, tokenizer):
     text = tokenizer.convert_tokens_to_string(
@@ -90,6 +98,10 @@ def best_predictions(tokens, tokenizer, start_logits, end_logits, prelim_preds, 
         )
     return n_best_predictions
 
+
+def to_list(tensor):
+    return tensor.detach().cpu().tolist()
+
 def compute_score_difference(predictions):
     """ Assumes that the null answer is always the last prediction """
     score_null = predictions[-1].start_logit + predictions[-1].end_logit
@@ -118,46 +130,74 @@ def get_robust_prediction(input_ids, tokenizer, start_logits, end_logits, n_best
 def evaluate(
     model,
     tokenizer,
-    val_dataloader,
-    val_examples,
+    data_dir,
     device,
     n_best = 10,
     null_threshold = 1.0,
 ):
+
+    val_features, val_examples, val_dataset = load_and_cache_examples(data_dir, tokenizer, num_examples=5000, evaluate=True)
+    val_dataloader = DataLoader(val_dataset, sampler=SequentialSampler(val_dataset), batch_size=1)
+
+    for batch in val_dataloader:
+        print({key: val.shape for key, val in enumerate(batch)})  # This will print the shape of each tensor in the batch
+        break  # Remove or comment this to inspect more batches
+
+
     if val_dataloader.batch_size != 1:
         raise RuntimeError("Evaluation dataloader batch size must be 1.")
 
     model.eval()
-
-    preds = []
-    null_odds = []
+    all_results = []    
     for i, batch in tqdm(enumerate(val_dataloader), desc="Evaluation"):
+
         batch = tuple(t.to(device) for t in batch)
-        inputs = {'input_ids': batch[0], 'attention_mask': batch[1], 'start_positions': batch[3], 'end_positions': batch[4]}
         
         # Pass the data thorugh the model and get the logits
         with torch.no_grad():
-            outputs = model(**inputs)
-            start_logits = outputs.start_logits[0]
-            end_logits = outputs.end_logits[0]
+            inputs = {'input_ids': batch[0], 
+                  'attention_mask': batch[1], 
+                  'token_type_ids': batch[2],
+                  'start_positions': batch[3], 
+                  'end_positions': batch[4]}
+            
+            outputs = model(input_ids=inputs['input_ids'],
+                            attention_mask=inputs['attention_mask'],
+                            token_type_ids=inputs['token_type_ids'],
+                            start_positions=inputs['start_positions'],
+                            end_positions=inputs['end_positions'])
         
-        #  Get the best predicted answer
-        pred_answer, score_difference = get_robust_prediction(
-            inputs['input_ids'][0], 
-            tokenizer,
-            start_logits,
-            end_logits,
-            n_best, 
-            null_threshold
-        )
-        preds.append(pred_answer)
-        null_odds.append(score_difference)
-
-    results = squad_evaluate(
+        for i, feature_index in enumerate(batch[3]):
+            unique_id = val_features[feature_index].unique_id
+            start_logits, end_logits = outputs.start_logits[i], outputs.end_logits[i]
+            start_logits = start_logits.detach().cpu().tolist()
+            end_logits = end_logits.detach().cpu().tolist()
+            result = SquadResult(
+                unique_id=unique_id,
+                start_logits=start_logits,
+                end_logits=end_logits
+            )
+            all_results.append(result)  
+        
+        print(f"\tBatch {i+1}/{len(val_dataloader)}")
+    
+    #  Get the best predicted answer
+    predictions = compute_predictions_logits(
         val_examples,
-        preds,
-        no_answer_probs=null_odds,
-        no_answer_probability_threshold=null_threshold
+        val_features,
+        all_results,
+        n_best,
+        max_answer_length=30,
+        do_lower_case=True,
+        output_prediction_file=None,
+        output_nbest_file=None,
+        output_null_log_odds_file=None,
+        verbose_logging=True,
+        version_2_with_negative=True,
+        null_score_diff_threshold=null_threshold,
+        tokenizer=tokenizer
     )
+
+    results = squad_evaluate(val_examples, predictions)
 
     return results

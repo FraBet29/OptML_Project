@@ -48,12 +48,6 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
     model.to(device)
 
-    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, num_examples=1000, evaluate=False)
-    _, val_examples, val_dataset = load_and_cache_examples(data_dir, tokenizer, num_examples=1000, evaluate=True)
-
-    train_loader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
-    val_loader = DataLoader(val_dataset, sampler=SequentialSampler(val_dataset), batch_size=1)
-
     if optimizer_name == "adamw":
         pass
     elif optimizer_name == "adasub":
@@ -64,9 +58,8 @@ def main():
         model=model,
         tokenizer=tokenizer,
         optimizer=optimizer,
-        train_dataloader=train_loader,
-        val_dataloader=val_loader,
-        val_examples=val_examples,
+        data_dir = data_dir,
+        batch_size=batch_size,
         device=device,
         learning_rate=lr,
         num_train_epochs=num_epochs,

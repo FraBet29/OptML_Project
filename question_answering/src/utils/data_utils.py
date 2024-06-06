@@ -26,23 +26,6 @@ def load_and_cache_examples(
         else:
             examples = processor.get_dev_examples("./data/raw_data/", filename="dev-v2.0.json")
 
-        # examples = []
-        # for item in ex:
-        #     answer_texts = item['answers']['text']
-        #     answer_starts = item['answers']['answer_start']
-        #     examples.append(
-        #         SquadExample(
-        #             qas_id=item['id'],
-        #             question_text=item['question'],
-        #             context_text=item['context'],
-        #             answer_text=answer_texts[0] if answer_texts else "",
-        #             start_position_character=answer_starts[0] if answer_starts else None,
-        #             title="",
-        #             answers=item['answers'],
-        #             is_impossible = not answer_texts
-        #         )
-        #     )
-        
         features, dataset = squad_convert_examples_to_features(
             examples=examples,
             tokenizer=tokenizer,
