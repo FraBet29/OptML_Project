@@ -37,8 +37,6 @@ class Adasub(torch.optim.Optimizer):
             grad_outputs=vec,
             only_inputs=True,
             retain_graph=True,
-            allow_unused=True, # ADDED
-            materialize_grads=True # ADDED, useful for high order derivatives (?)
         )
         
         Hv_flaten = []
@@ -79,8 +77,7 @@ class Adasub(torch.optim.Optimizer):
                     p.subSpace = p.grad.data.view(-1,1)
 
                 else:
-                    # flat_grad = p.grad.view(-1,1)
-                    flat_grad = p.grad.view(-1,1).requires_grad_(True) # ADDED .requires_grad_(True)
+                    flat_grad = p.grad.view(-1,1)
                     p.subSpace = self.update_subspace(p.subSpace,flat_grad.data)
                     
                     Q, _ = torch.linalg.qr(p.subSpace.data)

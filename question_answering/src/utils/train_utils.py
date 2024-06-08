@@ -1,3 +1,5 @@
+import wandb
+
 from transformers import (
     AutoModelForQuestionAnswering,
     get_linear_schedule_with_warmup
@@ -18,13 +20,15 @@ def train(
     data_dir,
     batch_size,
     device, 
-    learning_rate = 5e-5, 
     num_train_epochs = 3,
     warmup_percent=0.1,
+    learning_rate=5e-5,
+    log_steps = 100,
     from_checkpoint = None
 ):
+    wandb.init(project="optml", name=f"{optimizer.__class__.__name__.lower()}-lr{learning_rate}-epochs{num_train_epochs}")
     
-    features, examples, train_dataset = load_and_cache_examples(data_dir, tokenizer, num_examples=5000, evaluate=False)
+    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=5000)
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
 
     if from_checkpoint:
@@ -36,10 +40,14 @@ def train(
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
 
     model.train()
+    best_eval_f1 = 0
+    curr_train_step = 0
+    loss_log = 0
     for epoch in range(num_train_epochs):
         running_loss = 0
 
-        for batch in tqdm(train_dataloader, desc="Training"):
+        pbar = tqdm(total=len(train_dataloader))
+        for batch in train_dataloader:
             batch = tuple(t.to(device) for t in batch)
             inputs = {
                 'input_ids': batch[0],
@@ -48,35 +56,55 @@ def train(
                 'start_positions': batch[3],
                 'end_positions': batch[4]
             }
+            # Get the model output
             outputs = model(input_ids=inputs['input_ids'], 
                             attention_mask=inputs['attention_mask'], 
                             token_type_ids=inputs['token_type_ids'], 
                             start_positions=inputs['start_positions'], 
                             end_positions=inputs['end_positions'])
+            # Calculate the loss, backpropagate and update the model
             loss = outputs.loss
-            loss.backward()
+            loss.backward(create_graph=True)
             optimizer.step()
             scheduler.step()
             model.zero_grad()
 
+            # Update the loss
             running_loss += loss.item()
+            loss_log += loss.item()
+
+            # Log the training loss
+            if (curr_train_step+1) % log_steps == 0:
+                wandb.log({"train_loss": loss_log / log_steps}, step=curr_train_step)
+                loss_log = 0
+            curr_train_step += 1
+
+            # Update the interactive bar
+            pbar.update(1)
+            pbar.set_description(f'Train loss: {loss.item():.4f}')
+        pbar.close()
         
         running_loss /= len(train_dataloader)
-       
-        # eval_loss, em_score, f1_score = evaluate(model, tokenizer, val_dataloader, val_examples, device)
-        result = evaluate(model = model, 
-                          tokenizer = tokenizer, 
-                          data_dir = data_dir, 
-                          device = device)
-        
         print(f"Epoch {epoch+1} | Training loss: {running_loss}")
-        # print(f"Epoch {epoch+1} | Eval loss: {eval_loss} | EM: {em_score:.2f} | F1: {f1_score:.2f}")
+
+        result = evaluate(model=model, 
+                          tokenizer=tokenizer, 
+                          data_dir=data_dir, 
+                          device=device)
         print(f"Eval result:\n{result}")
 
-        # if f1_score > best_eval_f1:
-        #     best_eval_f1 = f1_score
-        #     # Checkpoint the model
-        #     model.save_pretrained(f"./checkpoints/version-lr{learning_rate}-epochs{epoch+1}")
-        #     print(f"Model saved at epoch {epoch+1}")
+        # Log the eval metrics
+        wandb.log({
+            "eval_exact": result["exact"],
+            "eval_f1": result["f1"],
+        }, step=curr_train_step)
+
+        # TODO Possibly change later, once you figure out what f1-score threshold should be
+        f1_score = result["f1"]
+        if f1_score > best_eval_f1:
+            best_eval_f1 = f1_score
+            # Checkpoint the model
+            model.save_pretrained(f"./checkpoints/{optimizer.__class__.__name__.lower()}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}")
+            print(f"Model saved at epoch {epoch+1}")
 
     return model
