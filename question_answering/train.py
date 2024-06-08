@@ -1,29 +1,22 @@
 import argparse
 import torch
-
 from transformers import (
     AutoTokenizer,
     AutoModelForQuestionAnswering
 )
-from torch.utils.data import (
-    DataLoader, 
-    RandomSampler, 
-    SequentialSampler
-)
 from torch.optim import AdamW
-
-from src.utils.data_utils import load_and_cache_examples
 from src.utils.train_utils import train
 from src.optimizers.adasub import Adasub
+from src.optimizers.adahessian import Adahessian
 
-OPTIMIZERS = ["adamw", "adasub"]
+OPTIMIZERS = ["adamw", "adasub", "adahessian"]
 
 def main():
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
     parser.add_argument('--model_name', type=str, default='albert-base-v2', help=f'Name of the model')
     parser.add_argument('--tokenizer_name', type=str, default=None, help=f'Name of the tokenizer')
-    parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adasub", help='Optimizer for training')
+    parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adahessian", help='Optimizer for training')
     parser.add_argument('--n_directions', type=int, default=2, help='The dimension of the subspace for Adasub')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate for training')
     parser.add_argument('--batch-size', type=int, default=8, help='Batch size for training')
@@ -49,9 +42,11 @@ def main():
     model.to(device)
 
     if optimizer_name == "adamw":
-        pass
+        optimizer = AdamW(model.parameters(), lr=lr, device=device)
     elif optimizer_name == "adasub":
         optimizer = Adasub(model.parameters(), lr=lr, n_directions=n_directions, device=device)
+    elif optimizer_name == "adahessian":
+        optimizer = Adahessian(model.parameters(), lr=lr, device=device)
 
     print("Start training...")
     model = train(
