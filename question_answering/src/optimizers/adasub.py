@@ -38,7 +38,6 @@ class Adasub(torch.optim.Optimizer):
             only_inputs=True,
             retain_graph=True,
         )
-        
         Hv_flaten = []
         for i in range(len(Hv)):
             Hv_flaten.append(Hv[i].reshape(-1))

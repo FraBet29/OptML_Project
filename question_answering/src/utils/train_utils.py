@@ -27,12 +27,22 @@ def train(
     warmup_percent=0.1,
     learning_rate=5e-5,
     log_steps = 100,
-    from_checkpoint = None
+    grad_acum_steps = 1,
+    from_checkpoint = None,
 ):
-    wandb.init(project="optml", name=f"{optimizer.__class__.__name__.lower()}-lr{learning_rate}-epochs{num_train_epochs}")
-    
+    wandb.init(project="optml", name=f"{optimizer.__class__.__name__.lower()}-lr{learning_rate}-bs{batch_size}-epochs{num_train_epochs}")
 
-    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=5000)
+    wandb.define_metric("train_step")
+    wandb.define_metric("epoch")
+
+    wandb.define_metric("train_loss", step_metric="train_step")
+    wandb.define_metric("learning_rate", step_metric="train_step")
+    wandb.define_metric("eval_exact", step_metric="epoch")
+    wandb.define_metric("eval_f1", step_metric="epoch")
+    wandb.define_metric("memory_usage", step_metric="epoch")
+    wandb.define_metric("epoch_duration_seconds", step_metric="epoch")
+    
+    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=None)
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
 
     if from_checkpoint:
@@ -55,7 +65,7 @@ def train(
         running_loss = 0
 
         pbar = tqdm(total=len(train_dataloader))
-        for batch in train_dataloader:
+        for i, batch in enumerate(train_dataloader):
             batch = tuple(t.to(device) for t in batch)
             inputs = {
                 'input_ids': batch[0],
@@ -74,17 +84,28 @@ def train(
             # Calculate the loss, backpropagate and update the model
             loss = outputs.loss
             loss.backward(create_graph=True)
-            optimizer.step()
-            scheduler.step()
-            model.zero_grad()
+            # optimizer.step()
+            # scheduler.step()
+            # model.zero_grad()
+            if (i+1) % grad_acum_steps == 0 or i == len(train_dataloader) - 1:
+                for param in model.parameters():
+                    param.grad /= grad_acum_steps
+                
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
 
             # Update the loss
             running_loss += loss.item()
             loss_log += loss.item()
 
-            # Log the training loss
+            # Log the training loss and the learning rate
             if (curr_train_step+1) % log_steps == 0:
-                wandb.log({"train_loss": loss_log / log_steps}, step=curr_train_step)
+                wandb.log({
+                    "train_loss": loss_log / log_steps, 
+                    "learning_rate": optimizer.param_groups[0]['lr'],
+                    "train_step": curr_train_step
+                })
                 loss_log = 0
             curr_train_step += 1
 
@@ -103,17 +124,14 @@ def train(
         seconds = int(epoch_duration % 60)
         print("The duration of the epoch was: ", f"{hours}h {minutes}m {seconds}s")
 
+        # Log the time and memory usage
         tracemalloc.stop()
         top_stats = snapshot2.compare_to(snapshot1, 'lineno')
         print("[ Top 10 differences ]")
         for stat in top_stats[:10]:
             print(stat)
-        wandb.log({
-            "memory_usage": top_stats[0].size_diff,
-            "epoch_duration_seconds": epoch_duration,
-            }, step=curr_train_step)
 
-
+        # Evaluate the model
         result = evaluate(model=model, 
                           tokenizer=tokenizer, 
                           data_dir=data_dir, 
@@ -124,7 +142,10 @@ def train(
         wandb.log({
             "eval_exact": result["exact"],
             "eval_f1": result["f1"],
-        }, step=curr_train_step)
+            "memory_usage": top_stats[0].size_diff,
+            "epoch_duration_seconds": epoch_duration,
+            "epoch": epoch+1,
+        })
 
         # TODO Possibly change later, once you figure out what f1-score threshold should be
         f1_score = result["f1"]

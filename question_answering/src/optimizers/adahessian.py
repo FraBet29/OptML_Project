@@ -16,47 +16,43 @@ class Adahessian(torch.optim.Optimizer):
         n_samples (int, optional) -- how many times to sample `z` for the approximation of the hessian trace (default: 1)
     """
 
-    def __init__(self, params, device, lr=0.1, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0, 
-                 block_length = 16, hessian_power=1.0, update_each=1, n_samples=1, average_conv_kernel=False):
-        if not 0.0 <= lr:
-            raise ValueError(f"Invalid learning rate: {lr}")
-        if not 0.0 <= eps:
-            raise ValueError(f"Invalid epsilon value: {eps}")
-        if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
-        if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
-        if not 0.0 <= hessian_power <= 1.0:
-            raise ValueError(f"Invalid Hessian power value: {hessian_power}")
-
-        self.n_samples = n_samples
-        self.update_each = update_each
-        self.average_conv_kernel = average_conv_kernel
+    def __init__(
+        self, 
+        params, 
+        device, 
+        lr=0.1, 
+        betas=(0.9, 0.999), 
+        eps=1e-8, 
+        weight_decay=0.01, 
+        block_length = 16, 
+        hessian_power=1.0, 
+        update_each=1, 
+        n_samples=1,
+    ):
+        
         self.device = device
+        self.hessian_power = hessian_power
         self.block_length = block_length
-
-        # use a separate generator that deterministically generates the same `z`s across all GPUs in case of distributed training
-        self.generator = torch.Generator().manual_seed(2147483647)
+        self.n_samples = n_samples # We'll keep this at 1
+        self.update_each = update_each # Keeping this at 1 aussi
 
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, hessian_power=hessian_power)
         super(Adahessian, self).__init__(params, defaults)
 
         for p in self.get_params():
-            p.hess = 0.0 # we are adding an attribute at runtime to store the hessian trace
-            self.state[p]["hessian step"] = 0 # we are adding an attribute at runtime to store the number of steps
+            p.hess = 0.0 # We are adding an attribute at runtime to store the hessian trace
+            self.state[p]["hessian step"] = 0 # We are adding an attribute at runtime to store the number of steps
 
     def get_params(self):
         """
         Gets all parameters in all param_groups with gradients
         """
-
         return (p for group in self.param_groups for p in group['params'] if p.requires_grad)
 
     def zero_hessian(self):
         """
         Zeros out the accumalated hessian traces.
         """
-
         for p in self.get_params():
             if not isinstance(p.hess, float) and self.state[p]["hessian step"] % self.update_each == 0:
                 p.hess.zero_()
@@ -66,7 +62,6 @@ class Adahessian(torch.optim.Optimizer):
         """
         Computes the Hutchinson approximation of the hessian trace and accumulates it for each trainable parameter.
         """
-
         params = []
         for p in filter(lambda p: p.grad is not None, self.get_params()):
             if self.state[p]["hessian step"] % self.update_each == 0:  # compute the trace only each `update_each` step
@@ -79,11 +74,19 @@ class Adahessian(torch.optim.Optimizer):
         grads = [p.grad for p in params] # ADDED requires_grad_(True) to the gradients
 
         for i in range(self.n_samples):
-            zs = [ 2 * torch.randint_like(p, high=2, device=self.device) - 1 for p in params]  # Rademacher distribution {-1.0, 1.0}
-            h_zs = torch.autograd.grad(grads, params, grad_outputs=zs, only_inputs=True, retain_graph=True) # Hessian-vector products
-            for h_z, z, p in zip(h_zs, zs, params):
-                p.hess += h_z * z / self.n_samples  # approximate the expected values of z*(H@z)
-                # spatial averaging done outside of the function
+            vs = [ 2 * torch.randint_like(p, high=2, device=self.device) - 1 for p in params]  # Rademacher distribution {-1.0, 1.0}
+            
+            hvs = torch.autograd.grad(
+                grads, 
+                params, 
+                grad_outputs=vs, 
+                only_inputs=True, 
+                retain_graph=(i < self.n_samples-1)
+            )
+
+            for hv, v, p in zip(hvs, vs, params):
+                p.hess += hv * v / self.n_samples  # approximate the expected values of z*(H@z)
+                # NOTE: Spatial averaging is done outside of the function
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -92,7 +95,6 @@ class Adahessian(torch.optim.Optimizer):
         Arguments:
             closure (callable, optional) -- a closure that reevaluates the model and returns the loss (default: None)
         """
-
         loss = None
         if closure is not None:
             loss = closure()
@@ -109,6 +111,9 @@ class Adahessian(torch.optim.Optimizer):
                 #     p.hess = torch.abs(p.hess).mean(dim=[2, 3], keepdim=True).expand_as(p.hess).clone()
 
                 # NOTE: Replaced with above, transformers-specific averaging
+                if p.dim() <= 1:
+                    # Don't know if this condition is needed
+                    p.hess = torch.abs(p.hess)
                 if p.dim() == 2:
                     tmp_output1 = p.hess.view(-1, self.block_length)
                     tmp_output2 = torch.abs(torch.sum(tmp_output1, dim=1)).view(-1) / float(self.block_length)

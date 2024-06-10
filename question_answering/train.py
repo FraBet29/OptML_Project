@@ -16,10 +16,11 @@ def main():
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
     parser.add_argument('--model_name', type=str, default='albert-base-v2', help=f'Name of the model')
     parser.add_argument('--tokenizer_name', type=str, default=None, help=f'Name of the tokenizer')
-    parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adahessian", help='Optimizer for training')
+    parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adasub", help='Optimizer for training')
+    parser.add_argument('--hessian_power', type=int, default=1, help='Hessian power for Adahessian')
     parser.add_argument('--n_directions', type=int, default=2, help='The dimension of the subspace for Adasub')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate for training')
-    parser.add_argument('--batch-size', type=int, default=8, help='Batch size for training')
+    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=3, help='Number of epochs for training')
     parser.add_argument('--warmup_percent', type=float, default=0.1, help='Percentage of total training steps for warmup')
     args = parser.parse_args()
@@ -28,6 +29,7 @@ def main():
     model_name = args.model_name
     tokenizer_name = model_name if not args.tokenizer_name else args.tokenizer_name
     optimizer_name = args.optimizer
+    hessian_power = args.hessian_power
     n_directions = args.n_directions
     lr = args.lr
     batch_size = args.batch_size
@@ -42,13 +44,14 @@ def main():
     model.to(device)
 
     if optimizer_name == "adamw":
-        optimizer = AdamW(model.parameters(), lr=lr, device=device)
+        pass
+    elif optimizer_name == "adahessian":
+        optimizer = Adahessian(model.parameters(), lr=lr, hessian_power=hessian_power, device=device)
     elif optimizer_name == "adasub":
         optimizer = Adasub(model.parameters(), lr=lr, n_directions=n_directions, device=device)
     elif optimizer_name == "adahessian":
         optimizer = Adahessian(model.parameters(), lr=lr, device=device)
 
-    print("Start training...")
     model = train(
         model=model,
         tokenizer=tokenizer,
