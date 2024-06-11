@@ -7,8 +7,8 @@ from transformers import (
 from torch.optim import AdamW
 from src.utils.train_utils import train
 from src.optimizers.adasub import Adasub
-# from src.optimizers.adahessian import Adahessian
-from src.optimizers.adahessian_v2 import Adahessian
+from src.optimizers.adahessian import Adahessian
+# from src.optimizers.adahessian_v2 import Adahessian
 
 OPTIMIZERS = ["adamw", "adasub", "adahessian"]
 
@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--tokenizer_name', type=str, default=None, help=f'Name of the tokenizer')
     parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adasub", help='Optimizer for training')
     parser.add_argument('--hessian_power', type=float, default=1.0, help='Hessian power for Adahessian')
+    parser.add_argument('--update_each', type=int, default=1, help='Update the Hessian for Adahess every n steps')
     parser.add_argument('--n_directions', type=int, default=2, help='The dimension of the subspace for Adasub')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate for training')
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training')
@@ -33,6 +34,7 @@ def main():
     tokenizer_name = model_name if not args.tokenizer_name else args.tokenizer_name
     optimizer_name = args.optimizer
     hessian_power = args.hessian_power
+    update_each = args.update_each
     n_directions = args.n_directions
     lr = args.lr
     batch_size = args.batch_size
@@ -51,7 +53,7 @@ def main():
     if optimizer_name == "adamw":
         optimizer = AdamW(model.parameters(), lr=lr)
     elif optimizer_name == "adahessian":
-        optimizer = Adahessian(model.parameters(), lr=lr, hessian_power=hessian_power, device=device)
+        optimizer = Adahessian(model.parameters(), lr=lr, hessian_power=hessian_power, update_each=update_each, device=device)
     elif optimizer_name == "adasub":
         optimizer = Adasub(model.parameters(), lr=lr, n_directions=n_directions, device=device)
 

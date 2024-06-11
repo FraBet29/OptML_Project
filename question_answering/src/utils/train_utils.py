@@ -1,3 +1,4 @@
+import os
 import wandb
 import time
 
@@ -37,8 +38,8 @@ def train(
 
     wandb.define_metric("train_loss", step_metric="train_step")
     wandb.define_metric("learning_rate", step_metric="train_step")
-    wandb.define_metric("eval_exact", step_metric="epoch")
-    wandb.define_metric("eval_f1", step_metric="epoch")
+    wandb.define_metric("eval_exact", step_metric="train_step")
+    wandb.define_metric("eval_f1", step_metric="train_step")
     wandb.define_metric("memory_usage", step_metric="epoch")
     wandb.define_metric("epoch_duration_seconds", step_metric="epoch")
     
@@ -49,7 +50,8 @@ def train(
         model = AutoModelForQuestionAnswering.from_pretrained(from_checkpoint)
         model.to(device)
 
-    total_steps = len(train_dataloader) * num_train_epochs
+    steps_per_epoch = len(train_dataloader)
+    total_steps = steps_per_epoch * num_train_epochs
     warmup_steps = int(total_steps * warmup_percent)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
 
@@ -107,7 +109,21 @@ def train(
                     "train_step": curr_train_step
                 })
                 loss_log = 0
+
+            if (curr_train_step + 1) % (steps_per_epoch // 3) == 0:
+                result = evaluate(model=model, 
+                          tokenizer=tokenizer, 
+                          data_dir=data_dir, 
+                          device=device)
+                print(f"Eval result for training step {curr_train_step}:\n{result}")
+                wandb.log({
+                    "eval_exact": result["exact"],
+                    "eval_f1": result["f1"],
+                    "train_step": curr_train_step,
+                })
+
             curr_train_step += 1
+
 
             # Update the interactive bar
             pbar.update(1)
@@ -145,13 +161,21 @@ def train(
             "memory_usage": top_stats[0].size_diff,
             "epoch_duration_seconds": epoch_duration,
             "epoch": epoch+1,
+            "train_step": curr_train_step,
         })
 
         # TODO Possibly change later, once you figure out what f1-score threshold should be
         f1_score = result["f1"]
         if f1_score > best_eval_f1:
             best_eval_f1 = f1_score
-            model.save_pretrained(f"./checkpoints/{optimizer.__class__.__name__.lower()}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}")
+            
+            optimizer_name = optimizer.__class__.__name__.lower()
+            if not os.path.exists(f".checkpoints/{optimizer_name}"):
+                os.makedirs(f".checkpoints/{optimizer_name}")
+            
+            model.save_pretrained(
+                f"./checkpoints/{optimizer_name}/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
+            )
             print(f"Model saved at epoch {epoch+1}")
 
     return model
