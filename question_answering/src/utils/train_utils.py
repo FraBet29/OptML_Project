@@ -43,7 +43,7 @@ def train(
     wandb.define_metric("memory_usage", step_metric="epoch")
     wandb.define_metric("epoch_duration_seconds", step_metric="epoch")
     
-    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=None)
+    _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=15000)
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
 
     if from_checkpoint:

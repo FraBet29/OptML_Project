@@ -26,8 +26,9 @@ def load_and_cache_examples(
         else:
             examples = processor.get_dev_examples("./data/raw_data/", filename="dev-v2.0.json")
 
+        examples = examples if not num_examples else examples[:num_examples]
         features, dataset = squad_convert_examples_to_features(
-            examples=examples,
+            examples=examples[:num_examples],
             tokenizer=tokenizer,
             max_seq_length=max_seq_length,
             doc_stride=doc_stride,
@@ -50,8 +51,8 @@ def load_and_cache_examples(
         examples = torch.load(f"{data_dir}/{split}/examples.pt")
         print(f"Features and dataset loaded for {split}.")
 
-    num_examples = len(dataset) if num_examples is None else num_examples
-    features = features[:num_examples]
-    examples = examples[:num_examples]
-    dataset = Subset(dataset, range(num_examples))
+    # num_examples = len(dataset) if num_examples is None else num_examples
+    # features = features[:num_examples]
+    # examples = examples[:num_examples]
+    # dataset = Subset(dataset, range(num_examples))
     return features, examples, dataset
