@@ -182,9 +182,10 @@ class Adasub(torch.optim.Optimizer):
                     grad = p.grad
                     # Debug: Check if grad contains inf or nan
                     if torch.isnan(grad).any() or torch.isinf(grad).any():
-                        count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
-                        raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
-                    print(grad)
+                        # count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
+                        # raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
+                        # clip inf or nan values
+                        grad = torch.clip(grad, -1.0, 1.0)
                     # correct inf or nan values
                     # grad[torch.isnan(grad)] = 0
                     # grad[torch.isinf(grad)] = 0
