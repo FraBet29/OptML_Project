@@ -164,12 +164,12 @@ class Adasub(torch.optim.Optimizer):
     @torch.no_grad()
     def correction_Hessian(self,H):
         # Debug: Check if H contains inf or nan
-        if torch.isnan(H).any() or torch.isinf(H).any():
-            raise ValueError('Hessian matrix contains NaN or Inf')
+        # if torch.isnan(H).any() or torch.isinf(H).any():
+        #     raise ValueError('Hessian matrix contains NaN or Inf')
         eig, U = torch.linalg.eigh(H) # a bit slow
         # Debug: Check if eig contains inf or nan
-        if torch.isnan(eig).any() or torch.isinf(eig).any():
-            raise ValueError(f'eig contains NaN or Inf')
+        # if torch.isnan(eig).any() or torch.isinf(eig).any():
+        #     raise ValueError(f'eig contains NaN or Inf')
         alfa = 0
         if eig.min() < self.ro:
             alfa = self.ro - eig.min()
