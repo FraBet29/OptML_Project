@@ -10,14 +10,14 @@ from datasets import load_dataset
 def load_and_cache_examples(
     data_dir,
     tokenizer,
-    num_examples = None,
+    num_examples=None,
     max_seq_length=384, 
     doc_stride=128, 
     max_query_length=64, 
     evaluate=False,
     use_cached=True
 ):
-    split = 'validation' if evaluate else 'train'
+    split = "validation" if evaluate else "train"
 
     if (not use_cached) or (use_cached and (not os.path.exists(f"{data_dir}/{split}/features.pt"))):
         processor = SquadV2Processor()
