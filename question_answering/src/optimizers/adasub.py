@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 
-'''
 
 
 class Adasub(torch.optim.Optimizer):
@@ -54,8 +53,14 @@ class Adasub(torch.optim.Optimizer):
         return torch.cat(H_M,1)  
 
     @torch.no_grad()
-    def correction_Hessian(self,H):
+    def correction_Hessian(self, H):
+        # Debug: Check if H contains inf or nan
+        if torch.isnan(H).any() or torch.isinf(H).any():
+            raise ValueError('Hessian matrix contains NaN or Inf')
         eig, U = torch.linalg.eigh(H)
+        # Debug: Check if eig contains inf or nan
+        if torch.isnan(eig).any() or torch.isinf(eig).any():
+            raise ValueError(f'eig contains NaN or Inf')
         alfa = 0
         if eig.min() < self.ro:
             alfa = self.ro - eig.min()
@@ -79,13 +84,37 @@ class Adasub(torch.optim.Optimizer):
 
                 else:
                     flat_grad = p.grad.view(-1,1)
-                    p.subSpace = self.update_subspace(p.subSpace,flat_grad.data)
+                    # Debug: Check if grad contains inf or nan
+                    if torch.isnan(flat_grad).any() or torch.isinf(flat_grad).any():
+                        # count = torch.sum(torch.isnan(flat_grad) | torch.isinf(flat_grad)).item()
+                        # raise ValueError(f'Gradient contains {count} NaN or Inf (out of {flat_grad.numel()} elements)')
+                        # clip inf or nan values
+                        flat_grad[torch.isnan(flat_grad)] = 0
+                        flat_grad[torch.isposinf(flat_grad)] = 1
+                        flat_grad[torch.isneginf(flat_grad)] = -1
+                    p.subSpace = self.update_subspace(p.subSpace, flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data)
-                    HQ = self.Hessian_M(flat_grad, Q, p) # BUG: element 0 of tensors does not require grad and does not have a grad_fn
-                    U, eig, alfa = self.correction_Hessian(Q.T@HQ)
-                    y = U@torch.diag(1/(eig+alfa))@U.T@(Q.T@flat_grad)
-                    d_p = Q@y
-                    
+                    # Debug: Check if Q contains inf or nan
+                    if torch.isnan(Q).any() or torch.isinf(Q).any():
+                        # count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
+                        # raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
+                        # clip inf or nan values and normalize
+                        Q[torch.isnan(Q)] = 0
+                        Q[torch.isposinf(Q)] = 1
+                        Q[torch.isneginf(Q)] = -1
+                        Q /= torch.norm(Q, dim=0)
+                    HQ = self.Hessian_M(flat_grad, Q, p)
+                    # Debug: Check if HQ contains inf or nan
+                    if torch.isnan(HQ).any() or torch.isinf(HQ).any():
+                        # count = torch.sum(torch.isnan(HQ) | torch.isinf(HQ)).item()
+                        # raise ValueError(f'Hessian matrix contains {count} NaN or Inf (out of {HQ.numel()} elements)')
+                        # clip inf or nan values
+                        HQ[torch.isnan(HQ)] = 0
+                        HQ[torch.isposinf(HQ)] = 1
+                        HQ[torch.isneginf(HQ)] = -1
+                    U, eig, alfa = self.correction_Hessian(Q.T @ HQ)
+                    y = U @ torch.diag(1 / (eig + alfa)) @ U.T @ (Q.T @ flat_grad)
+                    d_p = Q @ y
                     p.update_value = d_p.view_as(p.data)
 
 
@@ -274,3 +303,5 @@ class Adasub(torch.optim.Optimizer):
         self.state['step'] += 1
 
         return loss
+    
+'''
