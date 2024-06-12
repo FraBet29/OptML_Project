@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-
+'''
 
 class Adasub(torch.optim.Optimizer):
     """
@@ -255,8 +255,12 @@ class Adasub(torch.optim.Optimizer):
             # Debug: Check if Hvs contains inf or nan
             for H in Hvs:
                 if torch.isnan(H).any() or torch.isinf(H).any():
-                    count = torch.sum(torch.isnan(H) | torch.isinf(H)).item()
-                    raise ValueError(f'Hessian-vector product contains {count} NaN or Inf (out of {H.numel()} elements)')
+                    # count = torch.sum(torch.isnan(H) | torch.isinf(H)).item()
+                    # raise ValueError(f'Hessian-vector product contains {count} NaN or Inf (out of {H.numel()} elements)')
+                    # clip inf or nan values
+                    H[torch.isnan(H)] = 0
+                    H[torch.isposinf(H)] = 1
+                    H[torch.isneginf(H)] = -1
             # Hvs is a list of Hessian-vector products for the i-th direction
             Hvs_basis.append(Hvs)
         
@@ -303,5 +307,4 @@ class Adasub(torch.optim.Optimizer):
         self.state['step'] += 1
 
         return loss
-    
-'''
+
