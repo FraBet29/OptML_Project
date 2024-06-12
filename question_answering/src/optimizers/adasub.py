@@ -185,7 +185,9 @@ class Adasub(torch.optim.Optimizer):
                         # count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
                         # raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
                         # clip inf or nan values
-                        grad = torch.clip(grad, -1.0, 1.0)
+                        grad[torch.isnan(grad)] = 0
+                        grad[torch.isposinf(grad)] = 1
+                        grad[torch.isneginf(grad)] = -1
                     # correct inf or nan values
                     # grad[torch.isnan(grad)] = 0
                     # grad[torch.isinf(grad)] = 0
@@ -197,8 +199,10 @@ class Adasub(torch.optim.Optimizer):
                         # count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
                         # raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
                         # clip inf or nan values and normalize
-                        Q = torch.clip(Q, -1.0, 1.0)
-                        Q /= torch.linalg.norm(Q, dim=0)
+                        Q[torch.isnan(Q)] = 0
+                        Q[torch.isposinf(Q)] = 1
+                        Q[torch.isneginf(Q)] = -1
+                        Q /= torch.norm(Q, dim=0)
                     Q = Q.view((*p.shape, self.n_directions)) # restore original shape
                     params.append(p)
                     grads.append(grad)
