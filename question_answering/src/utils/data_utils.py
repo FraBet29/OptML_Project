@@ -27,6 +27,14 @@ def load_and_cache_examples(
             examples = processor.get_dev_examples("./data/raw_data/", filename="dev-v2.0.json")
 
         examples = examples if not num_examples else examples[:num_examples]
+
+        # Debug: Check examples
+        print(f"Number of examples: {len(examples)}")
+        for example in examples[:5]:  # Just print the first 5 examples for inspection
+            print(f"Example ID: {example.qas_id}")
+            print(f"Question Text: {example.question_text} (type: {type(example.question_text)})")
+            print(f"Context Text: {example.context_text} (type: {type(example.context_text)})")
+
         features, dataset = squad_convert_examples_to_features(
             examples=examples[:num_examples],
             tokenizer=tokenizer,
