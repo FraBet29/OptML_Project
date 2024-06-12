@@ -187,9 +187,6 @@ class Adasub(torch.optim.Optimizer):
                     # correct inf or nan values
                     # grad[torch.isnan(grad)] = 0
                     # grad[torch.isinf(grad)] = 0
-                    # Debug: Check if the whole grad is zero
-                    if torch.all(grad == 0):
-                        raise ValueError('Gradient is zero')
                     flat_grad = grad.view(-1, 1)
                     p.subSpace = self.update_subspace(p.subSpace, flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data) # fast enough, acts on flattened data
