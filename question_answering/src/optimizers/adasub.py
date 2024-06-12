@@ -80,7 +80,7 @@ class Adasub(torch.optim.Optimizer):
                     p.subSpace = self.update_subspace(p.subSpace,flat_grad.data)
                     
                     Q, _ = torch.linalg.qr(p.subSpace.data)
-                    HQ = self.Hessian_M(flat_grad, Q, p) # BUG: element 0 of tensors does not require grad and does not have a grad_fn
+                    HQ = self.Hessian_M(flat_grad, Q, p)
                     U, eig, alfa = self.correction_Hessian(Q.T@HQ)
                     y = U@torch.diag(1/(eig+alfa))@U.T@(Q.T@flat_grad)
                     d_p = Q@y

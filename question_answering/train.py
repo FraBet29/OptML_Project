@@ -6,13 +6,16 @@ from transformers import (
 )
 from torch.optim import AdamW
 from src.utils.train_utils import train
-from src.optimizers.adasub import Adasub
+# from src.optimizers.adasub import Adasub
+from src.optimizers.adasub_v2 import Adasub
 from src.optimizers.adahessian import Adahessian
 # from src.optimizers.adahessian_v2 import Adahessian
 
 OPTIMIZERS = ["adamw", "adasub", "adahessian"]
 
 def main():
+    torch.backends.cuda.preferred_linalg_library(backend="magma")
+
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
     parser.add_argument('--model_name', type=str, default='albert-base-v2', help=f'Name of the model')
@@ -22,11 +25,11 @@ def main():
     parser.add_argument('--update_each', type=int, default=1, help='Update the Hessian for Adahess every n steps')
     parser.add_argument('--n_directions', type=int, default=2, help='The dimension of the subspace for Adasub')
     parser.add_argument('--lr', type=float, default=5e-5, help='Learning rate for training')
-    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for training')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=3, help='Number of epochs for training')
     parser.add_argument('--warmup_percent', type=float, default=0.1, help='Percentage of total training steps for warmup')
     parser.add_argument('--grad_acum_steps', type=int, default=1, help='Number of steps to accumulate gradients')
-    parser.add_argument('--log_steps', type=int, default=1000, help='Log training metrics every n steps')
+    parser.add_argument('--log_steps', type=int, default=100, help='Log training metrics every n steps')
     args = parser.parse_args()
 
     data_dir = args.data_dir
