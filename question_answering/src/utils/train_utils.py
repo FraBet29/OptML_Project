@@ -34,7 +34,6 @@ def train(
 
     wandb.define_metric("train_step")
     wandb.define_metric("epoch")
-
     wandb.define_metric("train_loss", step_metric="train_step")
     wandb.define_metric("learning_rate", step_metric="train_step")
     wandb.define_metric("eval_exact", step_metric="train_step")
@@ -119,11 +118,11 @@ def train(
 
             if (curr_train_step + 1) % 1000 == 0:
                 optimizer_name = optimizer.__class__.__name__.lower()
-                if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_0.003"):
-                    os.makedirs(f"checkpoints/{optimizer_name}_full_data_0.003")
+                if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}"):
+                    os.makedirs(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}")
                 
                 model.save_pretrained(
-                    f"./checkpoints/{optimizer_name}_full_data_0.003/tmp_checkpoint"
+                    f"./checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}/tmp_checkpoint__ep{epoch+1}"
                 )
                 print(f"Checkpoint saved at step {curr_train_step}.")
 
@@ -175,11 +174,11 @@ def train(
             best_eval_f1 = f1_score
             
             optimizer_name = optimizer.__class__.__name__.lower()
-            if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_0.003"):
-                os.makedirs(f"checkpoints/{optimizer_name}_full_data_0.003")
+            if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}"):
+                os.makedirs(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}")
             
             model.save_pretrained(
-                f"./checkpoints/{optimizer_name}_full_data_0.003/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
+                f"./checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
             )
             print(f"Model saved at epoch {epoch+1}")
 

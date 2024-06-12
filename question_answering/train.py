@@ -14,7 +14,7 @@ from src.optimizers.adahessian import Adahessian
 OPTIMIZERS = ["adamw", "adasub", "adahessian"]
 
 def main():
-    torch.backends.cuda.preferred_linalg_library(backend="magma")
+
 
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
