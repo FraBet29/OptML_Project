@@ -19,6 +19,10 @@ def load_and_cache_examples(
 ):
     split = "validation" if evaluate else "train"
 
+    # Debug: Check if the data exists
+    if not os.path.exists(f"{data_dir}/{split}/features.pt"):
+        raise FileNotFoundError(f"Features and dataset not found for {split}.")
+
     if (not use_cached) or (use_cached and (not os.path.exists(f"{data_dir}/{split}/features.pt"))):
         processor = SquadV2Processor()
         if not evaluate:
@@ -29,7 +33,7 @@ def load_and_cache_examples(
         examples = examples if not num_examples else examples[:num_examples]
 
         # Debug: check type
-        print(f"Type of examples: {type(examples)}")
+        # print(f"Type of examples: {type(examples)}")
 
         # Debug: Check examples
         # print(f"Number of examples: {len(examples)}")
