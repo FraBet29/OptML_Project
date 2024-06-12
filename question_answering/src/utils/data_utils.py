@@ -28,6 +28,9 @@ def load_and_cache_examples(
 
         examples = examples if not num_examples else examples[:num_examples]
 
+        # Debug: check type
+        print(f"Type of examples: {type(examples)}")
+
         # Debug: Check examples
         # print(f"Number of examples: {len(examples)}")
         # for example in examples[:5]:  # Just print the first 5 examples for inspection
@@ -40,16 +43,16 @@ def load_and_cache_examples(
             raise ValueError("Tokenizer is not provided")
 
         # Debug: Tokenize a few examples to check for issues
-        for example in examples[:5]:
-            print("Tokenizing example:")
-            print(f"Question: {example.question_text}")
-            print(f"Context: {example.context_text}")
-            try:
-                tokens = tokenizer(example.question_text, example.context_text, max_length=max_seq_length)
-                print(f"Tokens: {tokens}")
-            except Exception as e:
-                print(f"Error tokenizing example ID {example.qas_id}: {e}")
-                raise e
+        # for example in examples[:5]:
+        #     print("Tokenizing example:")
+        #     print(f"Question: {example.question_text}")
+        #     print(f"Context: {example.context_text}")
+        #     try:
+        #         tokens = tokenizer(example.question_text, example.context_text, max_length=max_seq_length)
+        #         print(f"Tokens: {tokens}")
+        #     except Exception as e:
+        #         print(f"Error tokenizing example ID {example.qas_id}: {e}")
+        #         raise e
 
         features, dataset = squad_convert_examples_to_features(
             examples=examples[:num_examples],
