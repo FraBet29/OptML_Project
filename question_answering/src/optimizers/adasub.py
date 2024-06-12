@@ -134,7 +134,15 @@ class Adasub(torch.optim.Optimizer):
 
     @torch.no_grad()
     def correction_Hessian(self,H):
-        eig, U = torch.linalg.eigh(H) # a bit slow
+        # eig, U = torch.linalg.eigh(H) # a bit slow
+        # alfa = 0
+        # if eig.min() < self.ro:
+        #     alfa = self.ro - eig.min()
+        # return U, eig, alfa
+        # try with eig instead
+        eig, U = torch.linalg.eig(H)
+        eig = eig.real
+        U = U.real
         alfa = 0
         if eig.min() < self.ro:
             alfa = self.ro - eig.min()
