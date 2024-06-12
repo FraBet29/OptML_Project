@@ -140,6 +140,10 @@ class Adasub(torch.optim.Optimizer):
         #     alfa = self.ro - eig.min()
         # return U, eig, alfa
         # try with eig instead
+        # first, check if H contains inf or nan
+        if torch.isnan(H).any() or torch.isinf(H).any():
+            print('Hessian:', H)
+            raise ValueError('Hessian matrix contains NaN or Inf')
         eig, U = torch.linalg.eig(H)
         eig = eig.real
         U = U.real
