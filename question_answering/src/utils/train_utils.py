@@ -29,7 +29,6 @@ def train(
     learning_rate=5e-5,
     log_steps = 100,
     grad_acum_steps = 1,
-    from_checkpoint = None,
 ):
     wandb.init(project="optml", name=f"{optimizer.__class__.__name__.lower()}-lr{learning_rate}-bs{batch_size}-epochs{num_train_epochs}")
 
@@ -45,10 +44,6 @@ def train(
     
     _, _, train_dataset = load_and_cache_examples(data_dir, tokenizer, evaluate=False, num_examples=None)
     train_dataloader = DataLoader(train_dataset, sampler=RandomSampler(train_dataset), batch_size=batch_size)
-
-    if from_checkpoint:
-        model = AutoModelForQuestionAnswering.from_pretrained(from_checkpoint)
-        model.to(device)
 
     steps_per_epoch = len(train_dataloader)
     total_steps = steps_per_epoch * num_train_epochs

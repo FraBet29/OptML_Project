@@ -18,6 +18,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
+    parser.add_argument('--checkpoint-path', type=str, default=None, help='Path to a checkpoint to load the model from')
     parser.add_argument('--model_name', type=str, default='albert-base-v2', help=f'Name of the model')
     parser.add_argument('--tokenizer_name', type=str, default=None, help=f'Name of the tokenizer')
     parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adasub", help='Optimizer for training')
@@ -33,6 +34,7 @@ def main():
     args = parser.parse_args()
 
     data_dir = args.data_dir
+    checkpoint_path = args.checkpoint_path
     model_name = args.model_name
     tokenizer_name = model_name if not args.tokenizer_name else args.tokenizer_name
     optimizer_name = args.optimizer
@@ -49,7 +51,10 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+    if checkpoint_path:
+        model = AutoModelForQuestionAnswering.from_pretrained(checkpoint_path)
+    else:
+        model = AutoModelForQuestionAnswering.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=False)
     model.to(device)
 
@@ -71,7 +76,7 @@ def main():
         num_train_epochs=num_epochs,
         warmup_percent=warmup_percent,
         log_steps=log_steps,
-        grad_acum_steps=grad_acum_steps
+        grad_acum_steps=grad_acum_steps,
     )
 
 
