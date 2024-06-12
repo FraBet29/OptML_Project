@@ -134,23 +134,25 @@ class Adasub(torch.optim.Optimizer):
 
     @torch.no_grad()
     def correction_Hessian(self,H):
-        # eig, U = torch.linalg.eigh(H) # a bit slow
-        # alfa = 0
-        # if eig.min() < self.ro:
-        #     alfa = self.ro - eig.min()
-        # return U, eig, alfa
-        # try with eig instead
-        # first, check if H contains inf or nan
+        # Debug: Check if H contains inf or nan
         if torch.isnan(H).any() or torch.isinf(H).any():
-            print('Hessian:', H)
             raise ValueError('Hessian matrix contains NaN or Inf')
-        eig, U = torch.linalg.eig(H)
-        eig = eig.real
-        U = U.real
+        eig, U = torch.linalg.eigh(H) # a bit slow
+        # Debug: Check if eig contains inf or nan
+        if torch.isnan(eig).any() or torch.isinf(eig).any():
+            raise ValueError(f'eig contains NaN or Inf')
         alfa = 0
         if eig.min() < self.ro:
             alfa = self.ro - eig.min()
         return U, eig, alfa
+        # try with eig instead
+        # eig, U = torch.linalg.eig(H)
+        # eig = eig.real
+        # U = U.real
+        # alfa = 0
+        # if eig.min() < self.ro:
+        #     alfa = self.ro - eig.min()
+        # return U, eig, alfa
         
         
     @torch.no_grad()
@@ -178,19 +180,23 @@ class Adasub(torch.optim.Optimizer):
                 else:
                     # p can be 1D or 2D for transformers, p.grad has the same shape as p
                     grad = p.grad
-                    # check if grad contains inf or nan
-                    # if torch.isnan(grad).any() or torch.isinf(grad).any():
-                    #     count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
-                    #     raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
+                    # Debug: Check if grad contains inf or nan
+                    if torch.isnan(grad).any() or torch.isinf(grad).any():
+                        count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
+                        raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
                     # correct inf or nan values
-                    grad[torch.isnan(grad)] = 0
-                    grad[torch.isinf(grad)] = 0
-                    # check if the whole grad is zero
+                    # grad[torch.isnan(grad)] = 0
+                    # grad[torch.isinf(grad)] = 0
+                    # Debug: Check if the whole grad is zero
                     if torch.all(grad == 0):
                         raise ValueError('Gradient is zero')
                     flat_grad = grad.view(-1, 1)
                     p.subSpace = self.update_subspace(p.subSpace, flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data) # fast enough, acts on flattened data
+                    # Debug: Check if Q contains inf or nan
+                    if torch.isnan(Q).any() or torch.isinf(Q).any():
+                        count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
+                        raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
                     Q = Q.view((*p.shape, self.n_directions)) # restore original shape
                     params.append(p)
                     grads.append(grad)
@@ -211,6 +217,11 @@ class Adasub(torch.optim.Optimizer):
                                       only_inputs=True, # only_inputs argument is deprecated and is ignored now (defaults to True)
                                       retain_graph=True
                                      )
+            # Debug: Check if Hvs contains inf or nan
+            for H in Hvs:
+                if torch.isnan(H).any() or torch.isinf(H).any():
+                    count = torch.sum(torch.isnan(H) | torch.isinf(H)).item()
+                    raise ValueError(f'Hessian-vector product contains {count} NaN or Inf (out of {H.numel()} elements)')
             # Hvs is a list of Hessian-vector products for the i-th direction
             Hvs_basis.append(Hvs)
         
