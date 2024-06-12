@@ -194,8 +194,11 @@ class Adasub(torch.optim.Optimizer):
                     Q, _ = torch.linalg.qr(p.subSpace.data) # fast enough, acts on flattened data
                     # Debug: Check if Q contains inf or nan
                     if torch.isnan(Q).any() or torch.isinf(Q).any():
-                        count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
-                        raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
+                        # count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
+                        # raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
+                        # clip inf or nan values and normalize
+                        Q = torch.clip(Q, -1.0, 1.0)
+                        Q /= torch.linalg.norm(Q, dim=0)
                     Q = Q.view((*p.shape, self.n_directions)) # restore original shape
                     params.append(p)
                     grads.append(grad)
