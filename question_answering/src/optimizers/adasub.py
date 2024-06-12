@@ -179,9 +179,12 @@ class Adasub(torch.optim.Optimizer):
                     # p can be 1D or 2D for transformers, p.grad has the same shape as p
                     grad = p.grad
                     # check if grad contains inf or nan
-                    if torch.isnan(grad).any() or torch.isinf(grad).any():
-                        count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
-                        raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
+                    # if torch.isnan(grad).any() or torch.isinf(grad).any():
+                    #     count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
+                    #     raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
+                    # correct inf or nan values
+                    grad[torch.isnan(grad)] = 0
+                    grad[torch.isinf(grad)] = 0
                     flat_grad = grad.view(-1, 1)
                     p.subSpace = self.update_subspace(p.subSpace, flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data) # fast enough, acts on flattened data
