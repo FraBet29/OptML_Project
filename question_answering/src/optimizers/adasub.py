@@ -191,12 +191,17 @@ class Adasub(torch.optim.Optimizer):
         Goal: call autograd.grad only one time (NOT ONE TIME PER PARAMETER)
         """
 
-        params = []
-        grads = []
-        flat_grads = []
-        matrixs = [] # each matrix (Q) has the same size as the subspace
+        # count how many groups there are
+        n_groups = len(self.param_groups)
+        print(f'Number of groups: {n_groups}')
+
+        for group in self.param_groups: # process each group separately
+
+            params = []
+            grads = []
+            flat_grads = []
+            matrixs = [] # each matrix (Q) has the same size as the subspace
         
-        for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
@@ -210,13 +215,13 @@ class Adasub(torch.optim.Optimizer):
                     # p can be 1D or 2D for transformers, p.grad has the same shape as p
                     grad = p.grad
                     # Debug: Check if grad contains inf or nan
-                    if torch.isnan(grad).any() or torch.isinf(grad).any():
-                        # count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
-                        # raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
-                        # clip inf or nan values
-                        grad[torch.isnan(grad)] = 0
-                        grad[torch.isposinf(grad)] = 1
-                        grad[torch.isneginf(grad)] = -1
+                    # if torch.isnan(grad).any() or torch.isinf(grad).any():
+                    #     # count = torch.sum(torch.isnan(grad) | torch.isinf(grad)).item()
+                    #     # raise ValueError(f'Gradient contains {count} NaN or Inf (out of {grad.numel()} elements)')
+                    #     # clip inf or nan values
+                    #     grad[torch.isnan(grad)] = 0
+                    #     grad[torch.isposinf(grad)] = 1
+                    #     grad[torch.isneginf(grad)] = -1
                     # correct inf or nan values
                     # grad[torch.isnan(grad)] = 0
                     # grad[torch.isinf(grad)] = 0
@@ -224,52 +229,52 @@ class Adasub(torch.optim.Optimizer):
                     p.subSpace = self.update_subspace(p.subSpace, flat_grad.data)
                     Q, _ = torch.linalg.qr(p.subSpace.data) # fast enough, acts on flattened data
                     # Debug: Check if Q contains inf or nan
-                    if torch.isnan(Q).any() or torch.isinf(Q).any():
-                        # count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
-                        # raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
-                        # clip inf or nan values and normalize
-                        Q[torch.isnan(Q)] = 0
-                        Q[torch.isposinf(Q)] = 1
-                        Q[torch.isneginf(Q)] = -1
-                        Q /= torch.norm(Q, dim=0)
+                    # if torch.isnan(Q).any() or torch.isinf(Q).any():
+                    #     # count = torch.sum(torch.isnan(Q) | torch.isinf(Q)).item()
+                    #     # raise ValueError(f'Q contains {count} NaN or Inf (out of {Q.numel()} elements)')
+                    #     # clip inf or nan values and normalize
+                    #     Q[torch.isnan(Q)] = 0
+                    #     Q[torch.isposinf(Q)] = 1
+                    #     Q[torch.isneginf(Q)] = -1
+                    #     Q /= torch.norm(Q, dim=0)
                     Q = Q.view((*p.shape, self.n_directions)) # restore original shape
                     params.append(p)
                     grads.append(grad)
                     flat_grads.append(flat_grad)
                     matrixs.append(Q)
                     
-        if len(params) == 0:
-            return
+            if len(params) == 0:
+                # return
+                break
         
-        Hvs_basis = []
-        HQs = []
+            Hvs_basis = []
+            HQs = []
+                
+            for i in range(self.n_directions): # process each basis vector separately
+                # compute the Hessian applied to the subspace basis
+                Hvs = torch.autograd.grad(grads,
+                                        params,
+                                        grad_outputs=[matrix[:,:,i] if matrix.dim()==3 else matrix[:,i] for matrix in matrixs],
+                                        only_inputs=True, # only_inputs argument is deprecated and is ignored now (defaults to True)
+                                        retain_graph=True
+                                        )
+                # Debug: Check if Hvs contains inf or nan
+                # for H in Hvs:
+                #     if torch.isnan(H).any() or torch.isinf(H).any():
+                #         # count = torch.sum(torch.isnan(H) | torch.isinf(H)).item()
+                #         # raise ValueError(f'Hessian-vector product contains {count} NaN or Inf (out of {H.numel()} elements)')
+                #         # clip inf or nan values
+                #         H[torch.isnan(H)] = 0
+                #         H[torch.isposinf(H)] = 1
+                #         H[torch.isneginf(H)] = -1
+                # Hvs is a list of Hessian-vector products for the i-th direction
+                Hvs_basis.append(Hvs)
             
-        for i in range(self.n_directions): # process each basis vector separately
-            # compute the Hessian applied to the subspace basis
-            Hvs = torch.autograd.grad(grads,
-                                      params,
-                                      grad_outputs=[matrix[:,:,i] if matrix.dim()==3 else matrix[:,i] for matrix in matrixs],
-                                      only_inputs=True, # only_inputs argument is deprecated and is ignored now (defaults to True)
-                                      retain_graph=True
-                                     )
-            # Debug: Check if Hvs contains inf or nan
-            for H in Hvs:
-                if torch.isnan(H).any() or torch.isinf(H).any():
-                    # count = torch.sum(torch.isnan(H) | torch.isinf(H)).item()
-                    # raise ValueError(f'Hessian-vector product contains {count} NaN or Inf (out of {H.numel()} elements)')
-                    # clip inf or nan values
-                    H[torch.isnan(H)] = 0
-                    H[torch.isposinf(H)] = 1
-                    H[torch.isneginf(H)] = -1
-            # Hvs is a list of Hessian-vector products for the i-th direction
-            Hvs_basis.append(Hvs)
+            for idx in range(len(params)):
+                HQs.append(torch.cat([Hvs[idx].view(-1, 1) for Hvs in Hvs_basis], 1)) # flattened
+                
+            idx = 0
         
-        for idx in range(len(params)):
-            HQs.append(torch.cat([Hvs[idx].view(-1, 1) for Hvs in Hvs_basis], 1)) # flattened
-            
-        idx = 0
-        
-        for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
