@@ -29,7 +29,10 @@ def train(
     learning_rate=5e-5,
     log_steps = 100,
     grad_acum_steps = 1,
+    save_path=None
 ):
+    save_path = f"checkpoints/{optimizer_name}_15k_{learning_rate}_bs{batch_size}" if not save_path else save_path
+
     wandb.init(project="optml", name=f"{optimizer.__class__.__name__.lower()}-lr{learning_rate}-bs{batch_size}-epochs{num_train_epochs}")
 
     wandb.define_metric("train_step")
@@ -118,11 +121,11 @@ def train(
 
             if (curr_train_step + 1) % 1000 == 0:
                 optimizer_name = optimizer.__class__.__name__.lower()
-                if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}"):
-                    os.makedirs(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}")
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
                 
                 model.save_pretrained(
-                    f"./checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}/tmp_checkpoint__ep{epoch+1}"
+                    f"{save_path}/tmp_checkpoint__step{curr_train_step}"
                 )
                 print(f"Checkpoint saved at step {curr_train_step}.")
 
@@ -174,11 +177,11 @@ def train(
             best_eval_f1 = f1_score
             
             optimizer_name = optimizer.__class__.__name__.lower()
-            if not os.path.exists(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}"):
-                os.makedirs(f"checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}")
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             
             model.save_pretrained(
-                f"./checkpoints/{optimizer_name}_full_data_{learning_rate}_bs{batch_size}/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
+                f"{save_path}/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
             )
             print(f"Model saved at epoch {epoch+1}")
 

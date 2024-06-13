@@ -77,6 +77,7 @@ def main():
         warmup_percent=warmup_percent,
         log_steps=log_steps,
         grad_acum_steps=grad_acum_steps,
+        save_path="checkpoints/adahessian_continuation"
     )
 
 

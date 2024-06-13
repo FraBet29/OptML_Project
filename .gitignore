@@ -1,7 +1,17 @@
-question_answering/data/train/
-question_answering/data/validation/
+adasub/
+adahessian/
 
-question_answering/wandb/
-question_answering/checkpoints/
+data_1000/train/
+data_1000/validation/
+data_15000/train/
+data_15000/validation/
+
+logs/
+
+data/train/
+data/validation/
+
+wandb/
+checkpoints/
 
 **/__pycache__/
