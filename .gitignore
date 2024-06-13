@@ -2,5 +2,10 @@ question_answering/data/train/*
 question_answering/data/train/**/*
 question_answering/data/validation/*
 question_answering/data/validation/**/*
+
 question_answering/wandb/**
 question_answering/wandb/**/*
+question_answering/checkpoints/**
+question_answering/checkpoints/**/*
+
+**/__pycache__/
