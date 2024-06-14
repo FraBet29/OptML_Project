@@ -11,11 +11,11 @@ def load_and_cache_examples(
     data_dir,
     tokenizer,
     num_examples = None,
-    max_seq_length=384, 
-    doc_stride=128, 
-    max_query_length=64, 
-    evaluate=False,
-    use_cached=True
+    max_seq_length = 384, 
+    doc_stride = 128, 
+    max_query_length = 64, 
+    evaluate = False,
+    use_cached = True
 ):
     split = 'validation' if evaluate else 'train'
 
@@ -50,9 +50,5 @@ def load_and_cache_examples(
         dataset = torch.load(f"{data_dir}/{split}/dataset.pt")
         examples = torch.load(f"{data_dir}/{split}/examples.pt")
         print(f"Features and dataset loaded for {split}.")
-
-    # num_examples = len(dataset) if num_examples is None else num_examples
-    # features = features[:num_examples]
-    # examples = examples[:num_examples]
-    # dataset = Subset(dataset, range(num_examples))
+    
     return features, examples, dataset

@@ -1,5 +1,4 @@
 import torch
-import collections
 
 from transformers.data.metrics.squad_metrics import squad_evaluate, compute_predictions_logits
 from tqdm import tqdm
@@ -10,7 +9,6 @@ from torch.utils.data import (
     SequentialSampler
 )
 from transformers.data.processors.squad import SquadResult
-import os
 
 def to_list(tensor):
     return tensor.detach().cpu().tolist()

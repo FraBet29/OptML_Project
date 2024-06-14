@@ -2,10 +2,7 @@ import os
 import wandb
 import time
 
-from transformers import (
-    AutoModelForQuestionAnswering,
-    get_linear_schedule_with_warmup
-)
+from transformers import get_linear_schedule_with_warmup
 from tqdm import tqdm
 from src.utils.eval_utils import evaluate
 from src.utils.data_utils import load_and_cache_examples
@@ -25,11 +22,11 @@ def train(
     batch_size,
     device, 
     num_train_epochs = 3,
-    warmup_percent=0.1,
-    learning_rate=5e-5,
+    warmup_percent = 0.1,
+    learning_rate = 5e-5,
     log_steps = 100,
     grad_acum_steps = 1,
-    save_path=None
+    save_path = None
 ):
     save_path = f"checkpoints/{optimizer_name}_15k_{learning_rate}_bs{batch_size}" if not save_path else save_path
 
@@ -83,9 +80,8 @@ def train(
             # Calculate the loss, backpropagate and update the model
             loss = outputs.loss
             loss.backward(create_graph=True)
-            # optimizer.step()
-            # scheduler.step()
-            # model.zero_grad()
+            
+            # Gradient acummulation
             if (i+1) % grad_acum_steps == 0 or i == len(train_dataloader) - 1:
                 for param in model.parameters():
                     param.grad /= grad_acum_steps
@@ -107,6 +103,7 @@ def train(
                 })
                 loss_log = 0
 
+            # Evaluate three times per epoch
             if (curr_train_step + 1) % (steps_per_epoch // 3) == 0:
                 result = evaluate(model=model, 
                           tokenizer=tokenizer, 
@@ -119,13 +116,13 @@ def train(
                     "train_step": curr_train_step,
                 })
 
+            # Save a checkpoint every 1000 steps
             if (curr_train_step + 1) % 1000 == 0:
-                optimizer_name = optimizer.__class__.__name__.lower()
                 if not os.path.exists(save_path):
                     os.makedirs(save_path)
                 
                 model.save_pretrained(
-                    f"{save_path}/tmp_checkpoint__step{curr_train_step}"
+                    f"{save_path}/tmp_checkpoint_step{curr_train_step}"
                 )
                 print(f"Checkpoint saved at step {curr_train_step}.")
 
@@ -171,7 +168,6 @@ def train(
             "train_step": curr_train_step,
         })
 
-        # TODO Possibly change later, once you figure out what f1-score threshold should be
         f1_score = result["f1"]
         if f1_score > best_eval_f1:
             best_eval_f1 = f1_score
@@ -179,7 +175,6 @@ def train(
             optimizer_name = optimizer.__class__.__name__.lower()
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            
             model.save_pretrained(
                 f"{save_path}/{optimizer_name}-lr{learning_rate}-bs{batch_size}-ep{epoch+1}"
             )

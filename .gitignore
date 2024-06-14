@@ -1,13 +1,3 @@
-adasub/
-adahessian/
-
-data_1000/train/
-data_1000/validation/
-data_15000/train/
-data_15000/validation/
-
-logs/
-
 data/train/
 data/validation/
 

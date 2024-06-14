@@ -6,15 +6,12 @@ from transformers import (
 )
 from torch.optim import AdamW
 from src.utils.train_utils import train
-# from src.optimizers.adasub import Adasub
-from src.optimizers.adasub_v2 import Adasub
 from src.optimizers.adahessian import Adahessian
-# from src.optimizers.adahessian_v2 import Adahessian
+from src.optimizers.adasub import Adasub
 
 OPTIMIZERS = ["adamw", "adasub", "adahessian"]
 
 def main():
-
 
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
@@ -77,7 +74,7 @@ def main():
         warmup_percent=warmup_percent,
         log_steps=log_steps,
         grad_acum_steps=grad_acum_steps,
-        save_path="checkpoints/adahessian_continuation"
+        save_path=f"checkpoints/"
     )
 
 
