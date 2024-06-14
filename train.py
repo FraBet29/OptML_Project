@@ -15,7 +15,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Training script')
     parser.add_argument('--data_dir', type=str, default='./data', help='Directory containing the data')
-    parser.add_argument('--checkpoint-path', type=str, default=None, help='Path to a checkpoint to load the model from')
+    parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to a checkpoint to load the model from')
     parser.add_argument('--model_name', type=str, default='albert-base-v2', help=f'Name of the model')
     parser.add_argument('--tokenizer_name', type=str, default=None, help=f'Name of the tokenizer')
     parser.add_argument('--optimizer', type=str, choices=OPTIMIZERS, default="adasub", help='Optimizer for training')

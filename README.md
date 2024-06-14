@@ -1,13 +1,20 @@
-# [CS-439] Comparison of second-order optimizers (???)
+# [CS-439] Comparison of second-order optimizers on transformers
 
 This repository contains implementations of two second-order optimizers - AdaHessian and AdaSub - and the utilities to train them on the SQuAD v2.0 dataset for extractive question answering. All the runs are using the [ALBERT](https://arxiv.org/abs/1909.11942) model with base configuration (~11M params).
 
-Our best result on AdaHessian can be reproduced by calling
-
+Our best results on a model fully trained with AdaHessian can be reproduced by running
 ```
 python train.py --optimizer adahessian \
-                --hessian_power 0.5 \
+                --hessian_power 0.25 \
                 --lr 0.003
+```
+
+The best results with a combined training strategy are reproducible by running
+```
+python train.py --checkpoint_path ./adamw_checkpoint \
+                --optimizer adahessian \
+                --hessian_power 0.5 \
+                --lr 0.0003
 ```
 
 The repository is organized as follows:
