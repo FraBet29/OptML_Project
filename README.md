@@ -23,18 +23,24 @@ The repository is organized as follows:
 ./
 ├── src/                    # Project source code
 │   ├── optimizers/         # Optimizer implementations
-|   │   ├── adahessian.py   
-|   │   ├── adasub.py       
+│   │   ├── adahessian.py   
+│   │   ├── adasub.py       
 │   ├── utils/              # Utility functions
-|   │   ├── data_utils.py   
-|   │   ├── train_utils.py  
-|   │   ├── eval_utils.py
+│   │   ├── data_utils.py   
+│   │   ├── train_utils.py  
+│   │   ├── eval_utils.py
 ├── data/                   # Raw SQuAD v2.0 data
 │   ├── raw_data/
-|   │   ├── train-v2.0.json
-|   │   ├── dev-v2.0.json
+│   │   ├── train-v2.0.json
+│   │   ├── dev-v2.0.json
+├── adamw_checkpoint/       # The AdamW checkpoint used for the combined technique
+│   ├── config.json
+│   ├── model.safetensors
+├── data_plots/             # Contains .csv files from wandb for plotting
+├── plots.ipynb             # Notebook with plots from the report
 ├── train.py                # Training script
 ├── README.md
+├── OptML_Report.pdf        # The report
 └── requirements.txt
 ```
 
