@@ -6,6 +6,11 @@ import time
 class Adasub(torch.optim.Optimizer):
     """
     Implements the AdaSub algorithm.
+    Arguments:
+        parameters (iterable) -- iterable of parameters to optimize or dicts defining parameter groups
+        lr (float, optional) -- learning rate (default: 1e-3)
+        n_directions (int, optional) -- the dimension of the subspace (default: 2)
+        device (str, optional) -- device to run the optimizer on (default: 'cpu')
     """
 
     def __init__(self, parameters, lr=1e-3, n_directions = 2, device = "cpu"):

@@ -11,6 +11,7 @@ class Adahessian(torch.optim.Optimizer):
         betas ((float, float), optional) -- coefficients used for computing running averages of gradient and the squared hessian trace (default: (0.9, 0.999))
         eps (float, optional) -- term added to the denominator to improve numerical stability (default: 1e-8)
         weight_decay (float, optional) -- weight decay (L2 penalty) (default: 0.0)
+        block_length (float, optional) -- block size for the spatial averaging (default: 16)
         hessian_power (float, optional) -- exponent of the hessian trace (default: 1.0)
         update_each (int, optional) -- compute the hessian trace approximation only after *this* number of steps (to save time) (default: 1)
         n_samples (int, optional) -- how many times to sample `z` for the approximation of the hessian trace (default: 1)
@@ -20,14 +21,14 @@ class Adahessian(torch.optim.Optimizer):
         self, 
         params, 
         device, 
-        lr=0.1, 
-        betas=(0.9, 0.999), 
-        eps=1e-8, 
-        weight_decay=0.01, 
+        lr = 0.1, 
+        betas = (0.9, 0.999), 
+        eps = 1e-8, 
+        weight_decay = 0.01, 
         block_length = 16, 
-        hessian_power=1.0, 
-        update_each=1, 
-        n_samples=1,
+        hessian_power = 1.0, 
+        update_each = 1, 
+        n_samples = 1,
     ):
         
         self.device = device
